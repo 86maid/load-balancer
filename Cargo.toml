@@ -1,0 +1,18 @@
+[package]
+name = "load-balancer"
+version = "0.1.0"
+edition = "2024"
+authors = ["86maid"]
+description = "A set of load balancers for Rust, supporting IP-based, threshold, limit, random, and simple strategies."
+license = "MIT"
+repository = "https://github.com/86maid/load-balancer"
+keywords = ["load-balancer", "balancer", "async", "reqwest", "tokio"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+get_if_addrs = "0.5"
+rand = "0.9"
+reqwest = "0.12"
+tokio = { version = "1", features = ["full"] }
