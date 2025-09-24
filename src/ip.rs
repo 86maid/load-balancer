@@ -1,7 +1,8 @@
 use crate::{
-    LoadBalancer,
+    BoxLoadBalancer, LoadBalancer,
     limit::{LimitLoadBalancer, LimitLoadBalancerRef},
 };
+use async_trait::async_trait;
 use get_if_addrs::get_if_addrs;
 use reqwest::{Client, ClientBuilder};
 use std::{net::IpAddr, sync::Arc, time::Duration};
@@ -181,12 +182,25 @@ impl IPClientLoadBalancer {
 impl LoadBalancer<Client> for IPClientLoadBalancer {
     /// Allocate a client asynchronously.
     fn alloc(&self) -> impl Future<Output = Option<Client>> + Send {
-        self.inner.alloc()
+        LoadBalancer::alloc(&self.inner)
     }
 
     /// Attempt to allocate a client immediately.
     fn try_alloc(&self) -> Option<Client> {
-        self.inner.try_alloc()
+        LoadBalancer::try_alloc(&self.inner)
+    }
+}
+
+#[async_trait]
+impl BoxLoadBalancer<Client> for IPClientLoadBalancer {
+    /// Allocate a client asynchronously.
+    async fn alloc(&self) -> Option<Client> {
+        LoadBalancer::alloc(self).await
+    }
+
+    /// Attempt to allocate a client immediately.
+    fn try_alloc(&self) -> Option<Client> {
+        LoadBalancer::try_alloc(self)
     }
 }
 

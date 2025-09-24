@@ -12,8 +12,6 @@
 //! - `simple` - A simple sequential load balancer with optional Arc or Mutex wrappers.
 //! - `threshold` - Implements threshold-based load balancing logic.
 //!
-//! The crate re-exports the [`get_if_addrs`] crate for retrieving network interface addresses.
-//!
 //! ## Traits
 //!
 //! ### `LoadBalancer<T>`
