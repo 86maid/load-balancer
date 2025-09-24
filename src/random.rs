@@ -53,13 +53,14 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Asynchronously allocate a random entry.
-    async fn alloc(&self) -> Option<T> {
+    async fn alloc(&self) -> T {
         self.inner
             .read()
             .await
             .iter()
             .choose(&mut rand::rng())
             .map(|v| v.value.clone())
+            .unwrap()
     }
 
     /// Try to allocate a random entry synchronously.
@@ -79,13 +80,14 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Asynchronously allocate a random entry.
-    async fn alloc(&self) -> Option<T> {
+    async fn alloc(&self) -> T {
         self.inner
             .read()
             .await
             .iter()
             .choose(&mut rand::rng())
             .map(|v| v.value.clone())
+            .unwrap()
     }
 
     /// Try to allocate a random entry synchronously.

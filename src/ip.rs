@@ -181,7 +181,7 @@ impl IPClientLoadBalancer {
 
 impl LoadBalancer<Client> for IPClientLoadBalancer {
     /// Allocate a client asynchronously.
-    fn alloc(&self) -> impl Future<Output = Option<Client>> + Send {
+    fn alloc(&self) -> impl Future<Output = Client> + Send {
         LoadBalancer::alloc(&self.inner)
     }
 
@@ -194,7 +194,7 @@ impl LoadBalancer<Client> for IPClientLoadBalancer {
 #[async_trait]
 impl BoxLoadBalancer<Client> for IPClientLoadBalancer {
     /// Allocate a client asynchronously.
-    async fn alloc(&self) -> Option<Client> {
+    async fn alloc(&self) -> Client {
         LoadBalancer::alloc(self).await
     }
 

@@ -110,10 +110,10 @@ where
     }
 
     /// Allocate an entry, skipping the specified index if provided.
-    async fn alloc_skip(&self, skip_index: usize) -> Option<(usize, T)> {
+    async fn alloc_skip(&self, skip_index: usize) -> (usize, T) {
         loop {
             match self.try_alloc_skip(skip_index) {
-                Some(v) => return Some(v),
+                Some(v) => return v,
                 None => yield_now().await,
             };
         }
@@ -217,8 +217,8 @@ where
     T: Clone + Send + Sync + 'static,
 {
     /// Allocate an entry asynchronously.
-    fn alloc(&self) -> impl Future<Output = Option<T>> + Send {
-        async move { self.alloc_skip(usize::MAX).await.map(|v| v.1) }
+    fn alloc(&self) -> impl Future<Output = T> + Send {
+        async move { self.alloc_skip(usize::MAX).await.1 }
     }
 
     /// Attempt to allocate an entry immediately.
@@ -233,8 +233,8 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Allocate an entry asynchronously.
-    async fn alloc(&self) -> Option<T> {
-        self.alloc_skip(usize::MAX).await.map(|v| v.1)
+    async fn alloc(&self) -> T {
+        self.alloc_skip(usize::MAX).await.1
     }
 
     /// Attempt to allocate an entry immediately.

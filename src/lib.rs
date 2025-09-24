@@ -88,12 +88,12 @@ use async_trait::async_trait;
 use std::future::Future;
 
 pub trait LoadBalancer<T>: Send + Sync + Clone + 'static {
-    fn alloc(&self) -> impl Future<Output = Option<T>> + Send;
+    fn alloc(&self) -> impl Future<Output = T> + Send;
     fn try_alloc(&self) -> Option<T>;
 }
 
 #[async_trait]
 pub trait BoxLoadBalancer<T>: Send + Sync + Clone + 'static {
-    async fn alloc(&self) -> Option<T>;
+    async fn alloc(&self) -> T;
     fn try_alloc(&self) -> Option<T>;
 }

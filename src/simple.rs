@@ -67,18 +67,12 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Asynchronously allocate the next entry in sequence.
-    async fn alloc(&self) -> Option<T> {
+    async fn alloc(&self) -> T {
         let entries = self.inner.entries.read().await;
 
-        if entries.is_empty() {
-            return None;
-        }
-
-        Some(
-            entries[self.inner.cursor.fetch_add(1, Ordering::Relaxed) % entries.len()]
-                .value
-                .clone(),
-        )
+        entries[self.inner.cursor.fetch_add(1, Ordering::Relaxed) % entries.len()]
+            .value
+            .clone()
     }
 
     /// Try to allocate the next entry in sequence without awaiting.
@@ -103,7 +97,7 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Asynchronously allocate the next entry (BoxLoadBalancer version).
-    async fn alloc(&self) -> Option<T> {
+    async fn alloc(&self) -> T {
         LoadBalancer::alloc(self).await
     }
 

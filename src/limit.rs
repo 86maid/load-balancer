@@ -124,10 +124,10 @@ where
 
     /// Asynchronously allocate an entry, skipping the specified index.
     /// Loops until a valid entry is found.
-    async fn alloc_skip(&self, index: usize) -> Option<(usize, T)> {
+    async fn alloc_skip(&self, index: usize) -> (usize, T) {
         loop {
             match self.try_alloc_skip(index) {
-                Some(v) => return Some(v),
+                Some(v) => return v,
                 _ => yield_now().await,
             };
         }
@@ -189,13 +189,11 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Asynchronously allocate a resource from the load balancer.
-    /// Returns `Some(T)` if an entry is available.
-    fn alloc(&self) -> impl Future<Output = Option<T>> + Send {
-        async move { self.alloc_skip(usize::MAX).await.map(|v| v.1) }
+    fn alloc(&self) -> impl Future<Output = T> + Send {
+        async move { self.alloc_skip(usize::MAX).await.1 }
     }
 
     /// Synchronously try to allocate a resource.
-    /// Returns `Some(T)` if an entry is available.
     fn try_alloc(&self) -> Option<T> {
         self.try_alloc_skip(usize::MAX).map(|v| v.1)
     }
@@ -207,9 +205,8 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Asynchronously allocate a resource from the load balancer.
-    /// Returns `Some(T)` if an entry is available.
-    async fn alloc(&self) -> Option<T> {
-        self.alloc_skip(usize::MAX).await.map(|v| v.1)
+    async fn alloc(&self) -> T {
+        self.alloc_skip(usize::MAX).await.1
     }
 
     /// Synchronously try to allocate a resource.
