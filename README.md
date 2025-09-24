@@ -18,7 +18,7 @@ async fn main() {
     let start = tokio::time::Instant::now();
 
     for _ in 0..8 {
-        let node = lb.alloc().await.unwrap();
+        let node = lb.alloc().await;
 
         println!("{}s Allocated node: {}", start.elapsed().as_secs(), node);
     }
@@ -34,7 +34,7 @@ async fn main() {
     let start = tokio::time::Instant::now();
 
     for _ in 0..8 {
-        let node = lb.alloc().await.unwrap();
+        let node = lb.alloc().await;
 
         println!("{}s Allocated node: {}", start.elapsed().as_secs(), node);
     }
