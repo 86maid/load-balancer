@@ -15,7 +15,6 @@ use tokio::{
 
 /// Represents a single entry in the threshold load balancer.
 /// Tracks the maximum allowed requests, maximum errors, current usage count, and error count.
-#[derive(Debug)]
 pub struct Entry<T>
 where
     T: Send + Sync + Clone + 'static,
@@ -45,6 +44,21 @@ where
     /// Disable this entry by setting its error count to the maximum.
     pub fn disable(&self) {
         self.error_count.store(self.max_error_count, Release);
+    }
+}
+
+impl<T> Clone for Entry<T>
+where
+    T: Send + Sync + Clone + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            max_count: self.max_count.clone(),
+            max_error_count: self.max_error_count.clone(),
+            count: self.count.load(Acquire).into(),
+            error_count: self.error_count.load(Acquire).into(),
+            value: self.value.clone(),
+        }
     }
 }
 

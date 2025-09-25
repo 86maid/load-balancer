@@ -81,6 +81,7 @@ pub mod limit;
 pub mod random;
 pub mod simple;
 pub mod threshold;
+pub mod interval;
 pub use anyhow;
 pub use get_if_addrs;
 
