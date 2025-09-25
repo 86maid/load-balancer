@@ -7,6 +7,7 @@ A set of asynchronous load balancers for Rust, supporting multiple strategies:
 - **Limit**: restrict usage per interval.
 - **Random**: pick entries randomly.
 - **Simple**: round-robin sequential allocation.
+- **Interval**: interval allocation.
 
 ## Examples
 
