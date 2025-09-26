@@ -3,15 +3,6 @@
 //! This library provides a set of generic load balancer implementations for distributing
 //! workloads across multiple targets, such as clients, network endpoints, or resources.
 //!
-//! ## Modules
-//!
-//! - `ip` - Provides IP-based client load balancers with rate-limiting per IP.
-//! - `limit` - Implements a limit-based load balancer that restricts allocations per entry
-//!   within a configurable time interval.
-//! - `random` - Randomly selects an entry from the available pool.
-//! - `simple` - A simple sequential load balancer with optional Arc or Mutex wrappers.
-//! - `threshold` - Implements threshold-based load balancing logic.
-//!
 //! ## Traits
 //!
 //! ### `LoadBalancer<T>`
@@ -53,21 +44,7 @@
 //!     fn try_alloc(&self) -> Option<T>;
 //! }
 //! ```
-//!
-//! ## Usage Example
-//!
-//! ```rust
-//! use your_crate::random::RandomLoadBalancer;
-//!
-//! #[tokio::main]
-//! async fn main() {
-//!     let lb = RandomLoadBalancer::new(vec![1, 2, 3]);
-//!     if let Some(value) = lb.alloc().await {
-//!         println!("Allocated value: {}", value);
-//!     }
-//! }
-//! ```
-//!
+//! 
 //! ## Notes
 //!
 //! - All load balancers are `Send`, `Sync`, and `Clone`, making them suitable for multi-threaded

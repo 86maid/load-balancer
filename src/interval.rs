@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tokio::task::yield_now;
+use tokio::{sync::Mutex, task::yield_now};
 
 use crate::{BoxLoadBalancer, LoadBalancer};
 use std::{
@@ -18,7 +18,7 @@ where
     T: Send + Sync + Clone + 'static,
 {
     pub interval: Duration,
-    pub last: Option<RwLock<Instant>>,
+    pub last: Mutex<Option<Instant>>,
     pub value: T,
 }
 
@@ -28,11 +28,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            interval: self.interval,
-            last: self
-                .last
-                .as_ref()
-                .and_then(|v| Some(RwLock::new(*v.try_read().unwrap()))),
+            interval: self.interval.clone(),
+            last: self.last.try_lock().unwrap().clone().into(),
             value: self.value.clone(),
         }
     }
@@ -61,7 +58,7 @@ where
                     .into_iter()
                     .map(|(interval, value)| Entry {
                         interval,
-                        last: None,
+                        last: None.into(),
                         value,
                     })
                     .collect(),
@@ -101,21 +98,24 @@ where
     /// Returns `Some(value)` if an entry is available (interval elapsed),
     /// otherwise returns `None`.
     fn try_alloc(&self) -> Option<T> {
-        let mut entries = self.inner.try_write().ok()?;
+        let entries = self.inner.try_read().ok()?;
 
-        for entry in entries.iter_mut() {
-            if entry.last.is_none() {
-                entry.last = Some(RwLock::new(Instant::now()));
-                return Some(entry.value.clone());
-            }
+        for entry in entries.iter() {
+            if let Ok(mut last) = entry.last.try_lock() {
+                match *last {
+                    Some(v) => {
+                        let now = Instant::now();
 
-            let last = entry.last.as_ref().and_then(|lock| lock.try_read().ok())?;
-            let now = Instant::now();
-
-            if now.duration_since(*last) >= entry.interval {
-                drop(last);
-                entry.last = Some(RwLock::new(now));
-                return Some(entry.value.clone());
+                        if now.duration_since(v) >= entry.interval {
+                            *last = Some(now);
+                            return Some(entry.value.clone());
+                        }
+                    }
+                    None => {
+                        *last = Some(Instant::now());
+                        return Some(entry.value.clone());
+                    }
+                }
             }
         }
 
