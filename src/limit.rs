@@ -133,7 +133,7 @@ where
 
     /// Asynchronously allocate an entry, skipping the specified index.
     /// Loops until a valid entry is found.
-    async fn alloc_skip(&self, index: usize) -> (usize, T) {
+    pub async fn alloc_skip(&self, index: usize) -> (usize, T) {
         loop {
             match self.try_alloc_skip(index) {
                 Some(v) => return v,
@@ -144,7 +144,7 @@ where
 
     /// Try to allocate an entry without awaiting.
     /// Returns `None` immediately if no entry is available.
-    fn try_alloc_skip(&self, index: usize) -> Option<(usize, T)> {
+    pub fn try_alloc_skip(&self, index: usize) -> Option<(usize, T)> {
         if let Ok(mut v) = self.inner.timer.try_lock() {
             if v.is_none() {
                 let this = self.inner.clone();
