@@ -76,6 +76,10 @@ where
     T: Send + Sync + Clone + 'static,
 {
     /// Create a new `LimitLoadBalancer` with the default interval of 1 second.
+    ///
+    /// # Arguments
+    ///
+    /// * `entries` - A vector of tuples `(max_count, value)`.
     pub fn new(entries: Vec<(u64, T)>) -> Self {
         Self {
             inner: Arc::new(LimitLoadBalancerRef {
@@ -95,6 +99,11 @@ where
     }
 
     /// Create a new `LimitLoadBalancer` with a custom interval duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `entries` - A vector of tuples `(max_count, value)`.
+    /// * `interval` - Duration after which allocation counts are reset.
     pub fn new_interval(entries: Vec<(u64, T)>, interval: Duration) -> Self {
         Self {
             inner: Arc::new(LimitLoadBalancerRef {

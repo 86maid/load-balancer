@@ -88,8 +88,29 @@ impl<T> ThresholdLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
-    /// Create a new threshold load balancer with a fixed interval.
-    pub fn new(entries: Vec<(u64, u64, T)>, interval: Duration) -> Self {
+    /// Create a new threshold load balancer with a fixed 1-second interval.
+    ///
+    /// # Arguments
+    ///
+    /// * `entries` - A vector of tuples `(max_count, max_error_count, value)`:
+    ///     - `max_count`: Maximum number of allocations allowed per interval.
+    ///     - `max_error_count`: Maximum number of errors allowed before disabling the entry.
+    ///     - `value`: value.
+    pub fn new(entries: Vec<(u64, u64, T)>) -> Self {
+        Self::new_interval(entries, Duration::from_secs(1))
+    }
+
+    /// Create a new threshold load balancer with a custom interval.
+    ///
+    /// # Arguments
+    ///
+    /// * `entries` - A vector of tuples `(max_count, max_error_count, value)`:
+    ///     - `max_count`: Maximum number of allocations allowed per interval.
+    ///     - `max_error_count`: Maximum number of errors allowed before disabling the entry.
+    ///     - `value`: value.
+    ///
+    /// * `interval` - Duration after which all allocation/error counts are reset.
+    pub fn new_interval(entries: Vec<(u64, u64, T)>, interval: Duration) -> Self {
         Self {
             inner: Arc::new(ThresholdLoadBalancerRef {
                 entries: entries
@@ -107,11 +128,6 @@ where
                 interval: interval.into(),
             }),
         }
-    }
-
-    /// Create a new threshold load balancer with a custom interval.
-    pub fn new_interval(entries: Vec<(u64, u64, T)>, interval: Duration) -> Self {
-        Self::new(entries, interval)
     }
 
     /// Execute a custom async update on the internal reference.
@@ -135,7 +151,6 @@ where
 
     /// Try to allocate an entry immediately, skipping the specified index if provided.
     fn try_alloc_skip(&self, skip_index: usize) -> Option<(usize, T)> {
-        // Start the background timer if it is not already running.
         if let Ok(mut v) = self.inner.timer.try_lock() {
             if v.is_none() {
                 let this = self.inner.clone();
@@ -162,7 +177,6 @@ where
             }
         }
 
-        // Attempt to select a valid entry.
         if let Ok(entries) = self.inner.entries.try_read() {
             let mut skip_count = 0;
 
