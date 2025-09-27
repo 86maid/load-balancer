@@ -101,6 +101,10 @@ where
         let entries = self.inner.try_read().ok()?;
 
         for entry in entries.iter() {
+            if entry.interval == Duration::ZERO {
+                return Some(entry.value.clone());
+            }
+
             if let Ok(mut last) = entry.last.try_lock() {
                 match *last {
                     Some(v) => {

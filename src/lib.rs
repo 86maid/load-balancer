@@ -44,7 +44,7 @@
 //!     fn try_alloc(&self) -> Option<T>;
 //! }
 //! ```
-//! 
+//!
 //! ## Notes
 //!
 //! - All load balancers are `Send`, `Sync`, and `Clone`, making them suitable for multi-threaded
@@ -53,12 +53,13 @@
 //!   failure is expected under normal conditions and not necessarily an error.
 //! - `try_alloc` is non-blocking and will return `None` immediately if no resource is available.
 
+pub mod general;
+pub mod interval;
 pub mod ip;
 pub mod limit;
 pub mod random;
 pub mod simple;
 pub mod threshold;
-pub mod interval;
 pub use anyhow;
 pub use get_if_addrs;
 
