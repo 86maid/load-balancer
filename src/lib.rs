@@ -15,11 +15,9 @@
 //!
 //! pub trait LoadBalancer<T>: Send + Sync + Clone + 'static {
 //!     /// Asynchronously allocate a resource.
-//!     /// Returns `Some(T)` if successful, or `None` if no resource is available.
-//!     fn alloc(&self) -> impl Future<Output = Option<T>> + Send;
+//!     fn alloc(&self) -> impl Future<Output = T> + Send;
 //!
 //!     /// Attempt to allocate a resource synchronously without awaiting.
-//!     /// Returns `Some(T)` if successful, or `None` if no resource is available.
 //!     fn try_alloc(&self) -> Option<T>;
 //! }
 //! ```
@@ -36,22 +34,12 @@
 //! #[async_trait]
 //! pub trait BoxLoadBalancer<T>: Send + Sync + Clone + 'static {
 //!     /// Asynchronously allocate a resource.
-//!     /// Returns `Some(T)` if successful, or `None` if no resource is available.
-//!     async fn alloc(&self) -> Option<T>;
+//!     async fn alloc(&self) -> T;
 //!
 //!     /// Attempt to allocate a resource synchronously without awaiting.
-//!     /// Returns `Some(T)` if successful, or `None` if no resource is available.
 //!     fn try_alloc(&self) -> Option<T>;
 //! }
 //! ```
-//!
-//! ## Notes
-//!
-//! - All load balancers are `Send`, `Sync`, and `Clone`, making them suitable for multi-threaded
-//!   asynchronous environments.
-//! - The `alloc` method returns `Option<T>` rather than `Result`, reflecting that allocation
-//!   failure is expected under normal conditions and not necessarily an error.
-//! - `try_alloc` is non-blocking and will return `None` immediately if no resource is available.
 
 pub mod general;
 pub mod interval;
