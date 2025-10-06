@@ -19,12 +19,11 @@ impl IPClientLoadBalancer {
         }
     }
 
-    /// Build a load balancer using all local IPv4 addresses.
-    pub fn with_ipv4(interval: Duration) -> Self {
+    /// Build a load balancer using all local IP addresses.
+    pub fn with_ip(ip: Vec<IpAddr>, interval: Duration) -> Self {
         Self {
             inner: IntervalLoadBalancer::new(
-                get_ipv4_list()
-                    .into_iter()
+                ip.into_iter()
                     .map(|v| {
                         (
                             interval,
@@ -36,50 +35,11 @@ impl IPClientLoadBalancer {
         }
     }
 
-    /// Build a load balancer using all local IPv6 addresses.
-    pub fn with_ipv6(interval: Duration) -> Self {
+    /// Build a load balancer using IP addresses with a per-client timeout.
+    pub fn with_timeout(ip: Vec<IpAddr>, interval: Duration, timeout: Duration) -> Self {
         Self {
             inner: IntervalLoadBalancer::new(
-                get_ipv6_list()
-                    .into_iter()
-                    .map(|v| {
-                        (
-                            interval,
-                            ClientBuilder::new().local_address(v).build().unwrap(),
-                        )
-                    })
-                    .collect(),
-            ),
-        }
-    }
-
-    /// Build a load balancer using IPv4 addresses with a per-client timeout.
-    pub fn with_ipv4_timeout(interval: Duration, timeout: Duration) -> Self {
-        Self {
-            inner: IntervalLoadBalancer::new(
-                get_ipv4_list()
-                    .into_iter()
-                    .map(|v| {
-                        (
-                            interval,
-                            ClientBuilder::new()
-                                .local_address(v)
-                                .timeout(timeout)
-                                .build()
-                                .unwrap(),
-                        )
-                    })
-                    .collect(),
-            ),
-        }
-    }
-
-    /// Build a load balancer using IPv6 addresses with a per-client timeout.
-    pub fn with_ipv6_timeout(interval: Duration, timeout: Duration) -> Self {
-        Self {
-            inner: IntervalLoadBalancer::new(
-                get_ipv6_list()
-                    .into_iter()
+                ip.into_iter()
                     .map(|v| {
                         (
                             interval,
@@ -127,31 +87,28 @@ impl BoxLoadBalancer<Client> for IPClientLoadBalancer {
 }
 
 /// Get all non-loopback IP addresses of the machine.
-pub fn get_ip_list() -> Vec<IpAddr> {
-    get_if_addrs()
-        .unwrap()
+pub fn get_ip_list() -> anyhow::Result<Vec<IpAddr>> {
+    Ok(get_if_addrs()?
         .into_iter()
         .filter(|v| !v.is_loopback())
         .map(|v| v.ip())
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>())
 }
 
 /// Get all non-loopback IPv4 addresses of the machine.
-pub fn get_ipv4_list() -> Vec<IpAddr> {
-    get_if_addrs()
-        .unwrap()
+pub fn get_ipv4_list() -> anyhow::Result<Vec<IpAddr>> {
+    Ok(get_if_addrs()?
         .into_iter()
         .filter(|v| !v.is_loopback() && v.ip().is_ipv4())
         .map(|v| v.ip())
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>())
 }
 
 /// Get all non-loopback IPv6 addresses of the machine.
-pub fn get_ipv6_list() -> Vec<IpAddr> {
-    get_if_addrs()
-        .unwrap()
+pub fn get_ipv6_list() -> anyhow::Result<Vec<IpAddr>> {
+    Ok(get_if_addrs()?
         .into_iter()
         .filter(|v| !v.is_loopback() && v.ip().is_ipv6())
         .map(|v| v.ip())
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>())
 }
