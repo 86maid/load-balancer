@@ -34,10 +34,10 @@ impl ProxyPool {
     /// Create a new `LatencyProxyPool` from a list of proxy URLs.
     pub fn new<T: IntoIterator<Item = impl AsRef<str>>>(url: T) -> Self {
         Self {
-            test_url: "https://bilibili.com".to_string(),
+            test_url: "https://google.com".to_string(),
             timeout: Duration::from_secs(3),
             proxy: None,
-            max_check_concurrency: 1000,
+            max_check_concurrency: 64,
             available_count: Arc::new(AtomicUsize::new(0)),
             lb: SimpleLoadBalancer::new(url.into_iter().map(|v| v.as_ref().into()).collect()),
         }
