@@ -5,6 +5,7 @@ use crate::{
 use async_trait::async_trait;
 use reqwest::Proxy;
 use std::{
+    ops::Range,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -22,6 +23,7 @@ use tokio::{
 /// and sorts proxies by response time in ascending order.
 #[derive(Clone)]
 pub struct ProxyPool {
+    code_range: Range<u16>,
     test_url: String,
     timeout: Duration,
     proxy: Option<Proxy>,
@@ -34,13 +36,20 @@ impl ProxyPool {
     /// Create a new `LatencyProxyPool` from a list of proxy URLs.
     pub fn new<T: IntoIterator<Item = impl AsRef<str>>>(url: T) -> Self {
         Self {
-            test_url: "https://google.com".to_string(),
+            code_range: (200..300),
+            test_url: "https://apple.com".to_string(),
             timeout: Duration::from_secs(3),
             proxy: None,
             max_check_concurrency: 64,
             available_count: Arc::new(AtomicUsize::new(0)),
             lb: SimpleLoadBalancer::new(url.into_iter().map(|v| v.as_ref().into()).collect()),
         }
+    }
+
+    /// Set the range of HTTP status codes that are considered successful.
+    pub fn code_range(mut self, code_range: Range<u16>) -> Self {
+        self.code_range = code_range;
+        self
     }
 
     /// Set the URL used for testing proxy connectivity.
@@ -239,6 +248,7 @@ impl ProxyPool {
         for (index, entry) in entries.iter().enumerate() {
             let permit = semaphore.clone().acquire_owned().await.unwrap();
             let entry = entry.clone();
+            let code_range = self.code_range.clone();
             let test_url = self.test_url.clone();
             let timeout = self.timeout;
             let upstream_proxy = self.proxy.clone();
@@ -265,7 +275,7 @@ impl ProxyPool {
                     let start = Instant::now();
 
                     if let Ok(v) = client.get(&test_url).send().await {
-                        if v.status().is_success() {
+                        if code_range.contains(&v.status().as_u16()) {
                             latency = Some(start.elapsed().as_millis());
                             break;
                         }

@@ -1,6 +1,6 @@
 [package]
 name = "load-balancer"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 authors = ["86maid"]
 description = "Asynchronous load balancing utilities for Rust — including IP-based, threshold, interval, limit, random, and simple strategies."
