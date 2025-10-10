@@ -40,8 +40,8 @@
 //!     fn try_alloc(&self) -> Option<T>;
 //! }
 //! ```
-
 pub mod general;
+pub mod proxy;
 pub mod interval;
 pub mod ip;
 pub mod limit;

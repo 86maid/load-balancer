@@ -6,6 +6,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 use tokio::sync::RwLock;
+use tokio::task::yield_now;
 
 /// A single entry in the simple load balancer.
 #[derive(Clone)]
@@ -68,11 +69,18 @@ where
 {
     /// Asynchronously allocate the next entry in sequence.
     async fn alloc(&self) -> T {
-        let entries = self.inner.entries.read().await;
+        loop {
+            let entries = self.inner.entries.read().await;
 
-        entries[self.inner.cursor.fetch_add(1, Ordering::Relaxed) % entries.len()]
-            .value
-            .clone()
+            if entries.is_empty() {
+                drop(entries);
+                yield_now().await;
+            } else {
+                return entries[self.inner.cursor.fetch_add(1, Ordering::Relaxed) % entries.len()]
+                    .value
+                    .clone();
+            }
+        }
     }
 
     /// Try to allocate the next entry in sequence without awaiting.

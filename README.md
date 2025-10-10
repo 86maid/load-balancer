@@ -2,12 +2,13 @@
 
 A set of asynchronous load balancers for Rust, supporting multiple strategies:
 
-- **IP-based**: bind clients to system IP addresses.
-- **Threshold**: limit retries based on errors.
-- **Limit**: restrict usage per interval.
-- **Random**: pick entries randomly.
-- **Simple**: round-robin sequential allocation.
-- **Interval**: interval allocation.
+- **IP** — bind clients to specific system IPs.
+- **Threshold** — limit retries based on failure count.
+- **Limit** — restrict per-node usage per interval.
+- **Random** — randomly choose entries.
+- **Simple** — round-robin sequential allocator.
+- **Interval** — allocate resources on timed intervals.
+- **Proxy** — maintain a proxy connection pool.
 
 ## Examples
 
