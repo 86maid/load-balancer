@@ -70,15 +70,9 @@ where
     /// Asynchronously allocate the next entry in sequence.
     async fn alloc(&self) -> T {
         loop {
-            let entries = self.inner.entries.read().await;
-
-            if entries.is_empty() {
-                drop(entries);
-                yield_now().await;
-            } else {
-                return entries[self.inner.cursor.fetch_add(1, Ordering::Relaxed) % entries.len()]
-                    .value
-                    .clone();
+            match LoadBalancer::try_alloc(self) {
+                Some(v) => return v,
+                None => yield_now().await,
             }
         }
     }

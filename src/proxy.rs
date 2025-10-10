@@ -1,6 +1,6 @@
 use crate::{
     BoxLoadBalancer, LoadBalancer,
-    simple::{Entry, SimpleLoadBalancer},
+    simple::{Entry, SimpleLoadBalancer, SimpleLoadBalancerRef},
 };
 use async_trait::async_trait;
 use reqwest::Proxy;
@@ -13,6 +13,7 @@ use std::{
 };
 use tokio::{
     spawn,
+    sync::Semaphore,
     task::JoinHandle,
     time::{Instant, sleep},
 };
@@ -22,8 +23,9 @@ use tokio::{
 #[derive(Clone)]
 pub struct ProxyPool {
     test_url: String,
-    proxy: Option<Proxy>,
     timeout: Duration,
+    proxy: Option<Proxy>,
+    max_check_concurrency: usize,
     available_count: Arc<AtomicUsize>,
     lb: SimpleLoadBalancer<Arc<str>>,
 }
@@ -33,8 +35,9 @@ impl ProxyPool {
     pub fn new<T: IntoIterator<Item = impl AsRef<str>>>(url: T) -> Self {
         Self {
             test_url: "https://bilibili.com".to_string(),
-            proxy: None,
             timeout: Duration::from_secs(3),
+            proxy: None,
+            max_check_concurrency: 1000,
             available_count: Arc::new(AtomicUsize::new(0)),
             lb: SimpleLoadBalancer::new(url.into_iter().map(|v| v.as_ref().into()).collect()),
         }
@@ -55,6 +58,12 @@ impl ProxyPool {
     /// Set an optional upstream proxy for proxy validation.
     pub fn proxy(mut self, proxy: Proxy) -> Self {
         self.proxy = Some(proxy);
+        self
+    }
+
+    /// Set the maximum number of concurrent proxy checks during health validation.
+    pub fn max_check_concurrency(mut self, max_check_concurrency: usize) -> Self {
+        self.max_check_concurrency = max_check_concurrency;
         self
     }
 
@@ -119,9 +128,7 @@ impl ProxyPool {
                     result
                 };
 
-                let mut result = self.internal_check(&old_entries, retry_count).await?;
-
-                result.sort_by_key(|(_, latency)| *latency);
+                let result = self.internal_check(&old_entries, retry_count).await?;
 
                 let mut new_entries = Vec::with_capacity(result.len());
 
@@ -146,9 +153,7 @@ impl ProxyPool {
             .update(async |v| {
                 let old_entries = v.entries.read().await;
 
-                let mut result = self.internal_check(&old_entries, retry_count).await?;
-
-                result.sort_by_key(|(_, latency)| *latency);
+                let result = self.internal_check(&old_entries, retry_count).await?;
 
                 let mut new_entries = Vec::with_capacity(result.len());
 
@@ -189,44 +194,97 @@ impl ProxyPool {
         }))
     }
 
+    /// Spawn a background task with a callback after each check.
+    pub async fn spawn_check_callback<F, R>(
+        &self,
+        check_interval: Duration,
+        retry_count: usize,
+        callback: F,
+    ) -> anyhow::Result<JoinHandle<anyhow::Result<()>>>
+    where
+        F: Fn() -> R + Send + 'static,
+        R: Future<Output = anyhow::Result<()>> + Send,
+    {
+        self.check(retry_count).await?;
+        callback().await?;
+
+        let this = self.clone();
+
+        Ok(spawn(async move {
+            loop {
+                sleep(check_interval).await;
+                _ = this.check(retry_count).await;
+                callback().await?;
+            }
+        }))
+    }
+
+    /// Update the load balancer using a custom async handler.
+    pub async fn update<F, R>(&self, handle: F) -> anyhow::Result<()>
+    where
+        F: Fn(Arc<SimpleLoadBalancerRef<Arc<str>>>) -> R,
+        R: Future<Output = anyhow::Result<()>>,
+    {
+        self.lb.update(handle).await
+    }
+
     async fn internal_check(
         &self,
         entries: &Vec<Entry<Arc<str>>>,
         retry_count: usize,
     ) -> anyhow::Result<Vec<(usize, u128)>> {
-        let mut result = Vec::new();
+        let semaphore = Arc::new(Semaphore::new(self.max_check_concurrency));
+        let mut task = Vec::with_capacity(entries.len());
 
         for (index, entry) in entries.iter().enumerate() {
-            let mut latency = None;
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            let entry = entry.clone();
+            let test_url = self.test_url.clone();
+            let timeout = self.timeout;
+            let upstream_proxy = self.proxy.clone();
+            let entry_value = entry.value.clone();
 
-            for _ in 0..=retry_count {
-                let client = if let Some(proxy) = self.proxy.clone() {
-                    reqwest::ClientBuilder::new()
-                        .proxy(proxy)
-                        .proxy(Proxy::all(&*entry.value)?)
-                        .timeout(self.timeout)
-                        .build()?
-                } else {
-                    reqwest::ClientBuilder::new()
-                        .proxy(Proxy::all(&*entry.value)?)
-                        .timeout(self.timeout)
-                        .build()?
-                };
+            task.push(tokio::spawn(async move {
+                let _permit = permit;
+                let mut latency = None;
 
-                let start = Instant::now();
+                for _ in 0..=retry_count {
+                    let client = if let Some(proxy) = upstream_proxy.clone() {
+                        reqwest::ClientBuilder::new()
+                            .proxy(proxy)
+                            .proxy(Proxy::all(&*entry_value)?)
+                            .timeout(timeout)
+                            .build()?
+                    } else {
+                        reqwest::ClientBuilder::new()
+                            .proxy(Proxy::all(&*entry_value)?)
+                            .timeout(timeout)
+                            .build()?
+                    };
 
-                if let Ok(v) = client.get(&self.test_url).send().await {
-                    if v.status().is_success() {
-                        latency = Some(start.elapsed().as_millis());
-                        break;
+                    let start = Instant::now();
+
+                    if let Ok(v) = client.get(&test_url).send().await {
+                        if v.status().is_success() {
+                            latency = Some(start.elapsed().as_millis());
+                            break;
+                        }
                     }
                 }
-            }
 
-            if let Some(v) = latency {
-                result.push((index, v));
+                anyhow::Ok(latency.map(|v| (index, v)))
+            }));
+        }
+
+        let mut result = Vec::new();
+
+        for i in task {
+            if let Ok(Ok(Some(r))) = i.await {
+                result.push(r);
             }
         }
+
+        result.sort_by_key(|(_, latency)| *latency);
 
         Ok(result)
     }
