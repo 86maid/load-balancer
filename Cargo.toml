@@ -1,6 +1,6 @@
 [package]
 name = "load-balancer"
-version = "0.3.9"
+version = "0.4.0"
 edition = "2024"
 authors = ["86maid"]
 description = "Asynchronous load balancing utilities for Rust — including IP-based, threshold, interval, limit, random, and simple strategies."
@@ -15,5 +15,5 @@ async-trait = "0.1"
 futures = "0.3"
 get_if_addrs = "0.5"
 rand = "0.9"
-reqwest = "0.12"
+reqwest = { version = "0.12", features = ["socks"] }
 tokio = { version = "1", features = ["full"] }
