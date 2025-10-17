@@ -2,7 +2,6 @@
 
 A set of asynchronous load balancers for Rust, supporting multiple strategies:
 
-- **IP** — bind clients to specific system IPs.
 - **Threshold** — limit retries based on failure count.
 - **Limit** — restrict per-node usage per interval.
 - **Random** — randomly choose entries.

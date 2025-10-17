@@ -41,10 +41,9 @@
 //! }
 //! ```
 pub mod general;
-pub mod proxy;
 pub mod interval;
-pub mod ip;
 pub mod limit;
+pub mod proxy;
 pub mod random;
 pub mod simple;
 pub mod threshold;

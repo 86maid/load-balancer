@@ -38,9 +38,9 @@ impl ProxyPool {
         Self {
             code_range: (200..300),
             test_url: "https://apple.com".to_string(),
-            timeout: Duration::from_secs(3),
+            timeout: Duration::from_secs(5),
             proxy: None,
-            max_check_concurrency: 64,
+            max_check_concurrency: 1000,
             available_count: Arc::new(AtomicUsize::new(0)),
             lb: SimpleLoadBalancer::new(url.into_iter().map(|v| v.as_ref().into()).collect()),
         }

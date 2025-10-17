@@ -1,11 +1,10 @@
 use crate::{BoxLoadBalancer, LoadBalancer};
 use async_trait::async_trait;
-use std::sync::atomic::Ordering::Acquire;
-use std::sync::atomic::Ordering::Release;
+use std::sync::atomic::Ordering::{Acquire, Release};
 use std::{
     future::Future,
     sync::{Arc, atomic::AtomicU64},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{
     spawn,
@@ -56,6 +55,8 @@ where
     pub timer: Mutex<Option<JoinHandle<()>>>,
     /// The interval at which counts are reset.
     pub interval: RwLock<Duration>,
+    /// The next scheduled reset time.
+    pub next_reset: RwLock<Instant>,
 }
 
 /// A load balancer that limits the number of allocations per entry
@@ -81,21 +82,7 @@ where
     ///
     /// * `entries` - A vector of tuples `(max_count, value)`.
     pub fn new(entries: Vec<(u64, T)>) -> Self {
-        Self {
-            inner: Arc::new(LimitLoadBalancerRef {
-                entries: entries
-                    .into_iter()
-                    .map(|(max_count, value)| Entry {
-                        max_count,
-                        value,
-                        count: 0.into(),
-                    })
-                    .collect::<Vec<_>>()
-                    .into(),
-                timer: None.into(),
-                interval: Duration::from_secs(1).into(),
-            }),
-        }
+        Self::new_interval(entries, Duration::from_secs(1))
     }
 
     /// Create a new `LimitLoadBalancer` with a custom interval duration.
@@ -118,6 +105,7 @@ where
                     .into(),
                 timer: Mutex::new(None),
                 interval: interval.into(),
+                next_reset: RwLock::new(Instant::now() + interval),
             }),
         }
     }
@@ -135,22 +123,39 @@ where
     /// Loops until a valid entry is found.
     pub async fn alloc_skip(&self, index: usize) -> (usize, T) {
         loop {
-            match self.try_alloc_skip(index) {
-                Some(v) => return v,
-                _ => yield_now().await,
+            if let Some(v) = self.try_alloc_skip(index) {
+                return v;
+            }
+
+            let now = Instant::now();
+
+            let next = *self.inner.next_reset.read().await;
+
+            let remaining = if now < next {
+                next - now
+            } else {
+                Duration::ZERO
             };
+
+            if remaining > Duration::ZERO {
+                sleep(remaining).await;
+            } else {
+                yield_now().await;
+            }
         }
     }
 
     /// Try to allocate an entry without awaiting.
     /// Returns `None` immediately if no entry is available.
     pub fn try_alloc_skip(&self, index: usize) -> Option<(usize, T)> {
-        if let Ok(mut v) = self.inner.timer.try_lock() {
-            if v.is_none() {
+        if let Ok(mut timer_guard) = self.inner.timer.try_lock() {
+            if timer_guard.is_none() {
                 let this = self.inner.clone();
 
-                *v = Some(spawn(async move {
+                *timer_guard = Some(spawn(async move {
                     let mut interval = *this.interval.read().await;
+
+                    *this.next_reset.write().await = Instant::now() + interval;
 
                     loop {
                         sleep(match this.interval.try_read() {
@@ -162,16 +167,22 @@ where
                         })
                         .await;
 
-                        for i in this.entries.read().await.iter() {
-                            i.count.store(0, Release);
+                        let now = Instant::now();
+
+                        let entries = this.entries.read().await;
+
+                        for entry in entries.iter() {
+                            entry.count.store(0, Release);
                         }
+
+                        *this.next_reset.write().await = now + interval;
                     }
                 }));
             }
         }
 
-        if let Ok(v) = self.inner.entries.try_read() {
-            for (i, n) in v.iter().enumerate() {
+        if let Ok(entries) = self.inner.entries.try_read() {
+            for (i, n) in entries.iter().enumerate() {
                 if i == index {
                     continue;
                 }

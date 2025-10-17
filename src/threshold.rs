@@ -4,7 +4,7 @@ use std::sync::atomic::Ordering::{Acquire, Release};
 use std::{
     future::Future,
     sync::{Arc, atomic::AtomicU64},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{
     spawn,
@@ -19,7 +19,7 @@ pub struct Entry<T>
 where
     T: Send + Sync + Clone + 'static,
 {
-    /// Maximum number of allowed allocations per interval.
+    /// Maximum number of allocations per interval.
     pub max_count: u64,
     /// Maximum number of allowed errors before the entry is considered disabled.
     pub max_error_count: u64,
@@ -73,6 +73,8 @@ where
     pub timer: Mutex<Option<JoinHandle<()>>>,
     /// Interval duration for resetting counts.
     pub interval: RwLock<Duration>,
+    /// The next scheduled reset time.
+    pub next_reset: RwLock<Instant>,
 }
 
 /// Threshold-based load balancer that limits allocations per entry and handles failures.
@@ -126,6 +128,7 @@ where
                     .into(),
                 timer: Mutex::new(None),
                 interval: interval.into(),
+                next_reset: RwLock::new(Instant::now() + interval),
             }),
         }
     }
@@ -142,21 +145,38 @@ where
     /// Allocate an entry, skipping the specified index if provided.
     pub async fn alloc_skip(&self, skip_index: usize) -> (usize, T) {
         loop {
-            match self.try_alloc_skip(skip_index) {
-                Some(v) => return v,
-                None => yield_now().await,
+            if let Some(v) = self.try_alloc_skip(skip_index) {
+                return v;
+            }
+
+            let now = Instant::now();
+
+            let next = *self.inner.next_reset.read().await;
+
+            let remaining = if now < next {
+                next - now
+            } else {
+                Duration::ZERO
             };
+
+            if remaining > Duration::ZERO {
+                sleep(remaining).await;
+            } else {
+                yield_now().await;
+            }
         }
     }
 
     /// Try to allocate an entry immediately, skipping the specified index if provided.
     pub fn try_alloc_skip(&self, skip_index: usize) -> Option<(usize, T)> {
-        if let Ok(mut v) = self.inner.timer.try_lock() {
-            if v.is_none() {
+        if let Ok(mut timer_guard) = self.inner.timer.try_lock() {
+            if timer_guard.is_none() {
                 let this = self.inner.clone();
 
-                *v = Some(spawn(async move {
+                *timer_guard = Some(spawn(async move {
                     let mut interval = *this.interval.read().await;
+
+                    *this.next_reset.write().await = Instant::now() + interval;
 
                     loop {
                         sleep(match this.interval.try_read() {
@@ -168,10 +188,15 @@ where
                         })
                         .await;
 
-                        // Reset the allocation count for all entries.
-                        for i in this.entries.read().await.iter() {
-                            i.count.store(0, Release);
+                        let now = Instant::now();
+
+                        let entries = this.entries.read().await;
+
+                        for entry in entries.iter() {
+                            entry.count.store(0, Release);
                         }
+
+                        *this.next_reset.write().await = now + interval;
                     }
                 }));
             }
@@ -205,7 +230,6 @@ where
                 }
             }
 
-            // All entries are skipped due to errors.
             if skip_count == entries.len() {
                 return None;
             }

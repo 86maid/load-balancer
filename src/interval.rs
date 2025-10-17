@@ -86,9 +86,40 @@ where
     fn alloc(&self) -> impl Future<Output = T> + Send {
         async move {
             loop {
-                match LoadBalancer::try_alloc(self) {
-                    Some(v) => return v,
-                    None => yield_now().await,
+                if let Some(v) = LoadBalancer::try_alloc(self) {
+                    return v;
+                }
+
+                let min_remaining = {
+                    let entries = self.inner.read().await;
+                    let mut min = None;
+
+                    for entry in entries.iter() {
+                        if entry.interval == Duration::ZERO {
+                            continue;
+                        }
+
+                        if let Some(last_time) = *entry.last.lock().await {
+                            let now = Instant::now();
+                            let elapsed = now.duration_since(last_time);
+
+                            if elapsed < entry.interval {
+                                let remaining = entry.interval - elapsed;
+
+                                if min.is_none() || remaining < min.unwrap() {
+                                    min = Some(remaining);
+                                }
+                            }
+                        }
+                    }
+
+                    min
+                };
+
+                if let Some(duration) = min_remaining {
+                    tokio::time::sleep(duration).await;
+                } else {
+                    yield_now().await;
                 }
             }
         }
