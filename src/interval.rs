@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use tokio::{sync::Mutex, task::yield_now};
+use tokio::{sync::Mutex, sync::RwLock, task::yield_now};
 
 use crate::{BoxLoadBalancer, LoadBalancer};
 use std::{
     future::Future,
-    sync::{Arc, RwLock},
+    sync::Arc,
     time::{Duration, Instant},
 };
 

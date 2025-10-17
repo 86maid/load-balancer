@@ -4,6 +4,7 @@ use futures::future::join_all;
 use get_if_addrs::get_if_addrs;
 use reqwest::{Client, ClientBuilder, Proxy};
 use std::{net::IpAddr, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 /// Load balancer for `reqwest::Client` instances bound to specific IP addresses.
 /// Uses interval-based allocation.
@@ -85,7 +86,7 @@ impl IPClient {
     /// Update the internal load balancer.
     pub async fn update<F, R>(&self, handle: F) -> anyhow::Result<()>
     where
-        F: Fn(Arc<std::sync::RwLock<Vec<crate::interval::Entry<Client>>>>) -> R,
+        F: Fn(Arc<RwLock<Vec<crate::interval::Entry<Client>>>>) -> R,
         R: std::future::Future<Output = anyhow::Result<()>>,
     {
         self.inner.update(handle).await
