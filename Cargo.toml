@@ -13,7 +13,6 @@ categories = ["network-programming", "asynchronous"]
 anyhow = "1.0"
 async-trait = "0.1"
 futures = "0.3"
-get_if_addrs = "0.5"
 rand = "0.9"
 reqwest = { version = "0.12", features = ["socks"] }
 tokio = { version = "1", features = ["full"] }

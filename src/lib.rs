@@ -48,7 +48,6 @@ pub mod random;
 pub mod simple;
 pub mod threshold;
 pub use anyhow;
-pub use get_if_addrs;
 pub use reqwest;
 
 use async_trait::async_trait;
