@@ -68,10 +68,10 @@ where
 
     /// Update the internal entries using an async callback.
     /// This allows dynamic reconfiguration of the load balancer.
-    pub async fn update<F, R>(&self, handle: F) -> anyhow::Result<()>
+    pub async fn update<F, R, N>(&self, handle: F) -> anyhow::Result<N>
     where
         F: Fn(Arc<RwLock<Vec<Entry<T>>>>) -> R,
-        R: Future<Output = anyhow::Result<()>>,
+        R: Future<Output = anyhow::Result<N>>,
     {
         handle(self.inner.clone()).await
     }

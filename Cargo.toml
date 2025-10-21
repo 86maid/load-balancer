@@ -1,9 +1,9 @@
 [package]
 name = "load-balancer"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2024"
 authors = ["86maid"]
-description = "Asynchronous load balancing utilities for Rust — including IP-based, threshold, interval, limit, random, and simple strategies."
+description = "Asynchronous load balancing utilities for Rust — including threshold, interval, limit, random, and simple strategies."
 license = "MIT"
 repository = "https://github.com/86maid/load-balancer"
 keywords = ["load-balancer", "balancer", "async", "reqwest", "tokio"]

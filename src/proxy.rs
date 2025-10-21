@@ -5,12 +5,8 @@ use crate::{
 use async_trait::async_trait;
 use reqwest::Proxy;
 use std::{
-    cell::Cell,
     ops::Range,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, atomic::Ordering},
     time::Duration,
 };
 use tokio::{
@@ -29,7 +25,6 @@ pub struct ProxyPool {
     timeout: Duration,
     proxy: Option<Proxy>,
     max_check_concurrency: usize,
-    available_count: Arc<AtomicUsize>,
     lb: SimpleLoadBalancer<Arc<str>>,
 }
 
@@ -42,7 +37,6 @@ impl ProxyPool {
             timeout: Duration::from_secs(5),
             proxy: None,
             max_check_concurrency: 1000,
-            available_count: Arc::new(AtomicUsize::new(0)),
             lb: SimpleLoadBalancer::new(url.into_iter().map(|v| v.as_ref().into()).collect()),
         }
     }
@@ -78,41 +72,33 @@ impl ProxyPool {
     }
 
     /// Get the number of currently available (healthy) proxies.
-    pub fn available_count(&self) -> usize {
-        self.available_count.load(Ordering::Relaxed)
+    pub async fn available_count(&self) -> usize {
+        self.lb
+            .update(async |v| Ok(v.entries.read().await.len()))
+            .await
+            .unwrap()
     }
 
     /// Get available proxies.
     pub async fn available(&self) -> Vec<String> {
-        let result = Cell::new(Vec::new());
-
         self.lb
             .update(async |v| {
-                result.set(
-                    v.entries
-                        .read()
-                        .await
-                        .iter()
-                        .map(|v| v.value.to_string())
-                        .collect::<Vec<_>>(),
-                );
-
-                Ok(())
+                Ok(v.entries
+                    .read()
+                    .await
+                    .iter()
+                    .map(|v| v.value.to_string())
+                    .collect::<Vec<_>>())
             })
             .await
-            .unwrap();
-
-        result.take()
+            .unwrap()
     }
 
     /// Add new proxies to the pool without performing immediate validation.
     ///
     /// New entries are appended, the cursor is reset, and the available count is updated.
     /// Validation occurs on the next `check()` call.
-    pub async fn extend<T: IntoIterator<Item = impl AsRef<str>>>(
-        &self,
-        urls: T,
-    ) -> anyhow::Result<()> {
+    pub async fn extend<T: IntoIterator<Item = impl AsRef<str>>>(&self, urls: T) {
         let new_entries = urls
             .into_iter()
             .map(|v| Entry {
@@ -126,11 +112,11 @@ impl ProxyPool {
 
                 lock.extend(new_entries.clone());
                 v.cursor.store(0, Ordering::Relaxed);
-                self.available_count.store(lock.len(), Ordering::Relaxed);
 
                 Ok(())
             })
             .await
+            .unwrap();
     }
 
     /// Add new proxies and immediately perform connectivity and latency checks.
@@ -173,7 +159,6 @@ impl ProxyPool {
 
                 *lock = new_entries;
                 v.cursor.store(0, Ordering::Relaxed);
-                self.available_count.store(lock.len(), Ordering::Relaxed);
 
                 Ok(())
             })
@@ -200,7 +185,6 @@ impl ProxyPool {
 
                 *lock = new_entries;
                 v.cursor.store(0, Ordering::Relaxed);
-                self.available_count.store(lock.len(), Ordering::Relaxed);
 
                 Ok(())
             })
