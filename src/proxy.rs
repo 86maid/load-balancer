@@ -5,6 +5,7 @@ use crate::{
 use async_trait::async_trait;
 use reqwest::Proxy;
 use std::{
+    cell::Cell,
     ops::Range,
     sync::{
         Arc,
@@ -79,6 +80,29 @@ impl ProxyPool {
     /// Get the number of currently available (healthy) proxies.
     pub fn available_count(&self) -> usize {
         self.available_count.load(Ordering::Relaxed)
+    }
+
+    /// Get available proxies.
+    pub async fn available(&self) -> Vec<String> {
+        let result = Cell::new(Vec::new());
+
+        self.lb
+            .update(async |v| {
+                result.set(
+                    v.entries
+                        .read()
+                        .await
+                        .iter()
+                        .map(|v| v.value.to_string())
+                        .collect::<Vec<_>>(),
+                );
+
+                Ok(())
+            })
+            .await
+            .unwrap();
+
+        result.take()
     }
 
     /// Add new proxies to the pool without performing immediate validation.
