@@ -45,7 +45,7 @@ where
 /// Internal reference structure for `LimitLoadBalancer`.
 ///
 /// Holds the entries and the interval timer.
-pub struct LimitLoadBalancerRef<T>
+pub struct WindowLoadBalancerRef<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -64,15 +64,15 @@ where
 ///
 /// This implementation supports both async and sync allocation.
 #[derive(Clone)]
-pub struct LimitLoadBalancer<T>
+pub struct WindowLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
     /// Shared reference to the internal state.
-    inner: Arc<LimitLoadBalancerRef<T>>,
+    inner: Arc<WindowLoadBalancerRef<T>>,
 }
 
-impl<T> LimitLoadBalancer<T>
+impl<T> WindowLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -93,7 +93,7 @@ where
     /// * `interval` - Duration after which allocation counts are reset.
     pub fn new_interval(entries: Vec<(u64, T)>, interval: Duration) -> Self {
         Self {
-            inner: Arc::new(LimitLoadBalancerRef {
+            inner: Arc::new(WindowLoadBalancerRef {
                 entries: entries
                     .into_iter()
                     .map(|(max_count, value)| Entry {
@@ -113,7 +113,7 @@ where
     /// Update the load balancer using an async callback.
     pub async fn update<F, R, N>(&self, handle: F) -> anyhow::Result<N>
     where
-        F: Fn(Arc<LimitLoadBalancerRef<T>>) -> R,
+        F: Fn(Arc<WindowLoadBalancerRef<T>>) -> R,
         R: Future<Output = anyhow::Result<N>>,
     {
         handle(self.inner.clone()).await
@@ -204,7 +204,7 @@ where
     }
 }
 
-impl<T> LoadBalancer<T> for LimitLoadBalancer<T>
+impl<T> LoadBalancer<T> for WindowLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -220,7 +220,7 @@ where
 }
 
 #[async_trait]
-impl<T> BoxLoadBalancer<T> for LimitLoadBalancer<T>
+impl<T> BoxLoadBalancer<T> for WindowLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {

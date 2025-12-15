@@ -63,7 +63,7 @@ where
 }
 
 /// Internal representation of the threshold load balancer.
-pub struct ThresholdLoadBalancerRef<T>
+pub struct WindowEcLoadBalancerRef<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -79,14 +79,14 @@ where
 
 /// Threshold-based load balancer that limits allocations per entry and handles failures.
 #[derive(Clone)]
-pub struct ThresholdLoadBalancer<T>
+pub struct WindowEcLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
-    inner: Arc<ThresholdLoadBalancerRef<T>>,
+    inner: Arc<WindowEcLoadBalancerRef<T>>,
 }
 
-impl<T> ThresholdLoadBalancer<T>
+impl<T> WindowEcLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -114,7 +114,7 @@ where
     /// * `interval` - Duration after which all allocation/error counts are reset.
     pub fn new_interval(entries: Vec<(u64, u64, T)>, interval: Duration) -> Self {
         Self {
-            inner: Arc::new(ThresholdLoadBalancerRef {
+            inner: Arc::new(WindowEcLoadBalancerRef {
                 entries: entries
                     .into_iter()
                     .map(|(max_count, max_error_count, value)| Entry {
@@ -136,7 +136,7 @@ where
     /// Execute a custom async update on the internal reference.
     pub async fn update<F, R>(&self, handle: F) -> anyhow::Result<()>
     where
-        F: Fn(Arc<ThresholdLoadBalancerRef<T>>) -> R,
+        F: Fn(Arc<WindowEcLoadBalancerRef<T>>) -> R,
         R: Future<Output = anyhow::Result<()>>,
     {
         handle(self.inner.clone()).await
@@ -264,7 +264,7 @@ where
     }
 }
 
-impl<T> LoadBalancer<T> for ThresholdLoadBalancer<T>
+impl<T> LoadBalancer<T> for WindowEcLoadBalancer<T>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -280,7 +280,7 @@ where
 }
 
 #[async_trait]
-impl<T> BoxLoadBalancer<T> for ThresholdLoadBalancer<T>
+impl<T> BoxLoadBalancer<T> for WindowEcLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {

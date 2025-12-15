@@ -38,14 +38,14 @@ where
 /// A load balancer that allocates items based on a fixed interval.
 /// Each entry can only be reused after its interval has elapsed since the last allocation.
 #[derive(Clone)]
-pub struct IntervalLoadBalancer<T>
+pub struct TimeLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
     inner: Arc<RwLock<Vec<Entry<T>>>>,
 }
 
-impl<T> IntervalLoadBalancer<T>
+impl<T> TimeLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<T> LoadBalancer<T> for IntervalLoadBalancer<T>
+impl<T> LoadBalancer<T> for TimeLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {
@@ -159,7 +159,7 @@ where
 }
 
 #[async_trait]
-impl<T> BoxLoadBalancer<T> for IntervalLoadBalancer<T>
+impl<T> BoxLoadBalancer<T> for TimeLoadBalancer<T>
 where
     T: Send + Sync + Clone + 'static,
 {

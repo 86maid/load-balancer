@@ -40,13 +40,13 @@
 //!     fn try_alloc(&self) -> Option<T>;
 //! }
 //! ```
-pub mod general;
-pub mod interval;
-pub mod limit;
+
 pub mod proxy;
 pub mod random;
 pub mod simple;
-pub mod threshold;
+pub mod time;
+pub mod window;
+pub mod window_ec;
 pub use anyhow;
 pub use reqwest;
 
